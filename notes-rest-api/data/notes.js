@@ -7,7 +7,7 @@ let notes = [
     },
     {
         id: 2,
-        userId: 1,
+        userId: 2,
         title: "Learn MongoDB",
         content: "Practice MongoDB CRUD operations"
     }

@@ -1,10 +1,14 @@
 const express = require("express");
 const { z } = require("zod");
+const fs = require("fs");
 
 const requireAuth = require("../middleware/requireAuth");
 const notes = require("../data/notes");
 
 const router = express.Router();
+
+const upload = require("../middleware/upload");
+
 
 const noteSchema = z.object({
     title: z.string().min(3, "Title must be at least 3 characters"),
@@ -152,5 +156,98 @@ router.delete("/:id", requireAuth, (req, res) => {
     res.status(204).send();
 });
 
+router.post(
+    "/:id/attachment",
+    requireAuth,
+    upload.single("attachment"),
+    (req, res) => {
 
+        const id = Number(req.params.id);
+        const userId = Number(req.user.userId);
+
+        const note = notes.find(
+            note =>
+                note.id === id &&
+                note.userId === userId
+        );
+
+        if (!note) {
+            if (req.file) {
+                fs.unlinkSync(req.file.path);
+            }
+
+            return res.status(404).json({
+                success: false,
+                message: "Note not found"
+            });
+        }
+
+        if (!req.file) {
+            return res.status(400).json({
+                success: false,
+                message: "Image is required"
+            });
+        }
+
+        note.attachment = {
+            filename: req.file.filename,
+            path: req.file.path,
+            mimetype: req.file.mimetype
+        };
+
+        res.status(201).json({
+            success: true,
+            message: "Attachment uploaded successfully",
+            attachment: note.attachment
+        });
+    }
+);
+
+router.get(
+    "/:id/attachment",
+    requireAuth,
+    (req, res) => {
+
+        const id = Number(req.params.id);
+        const userId = Number(req.user.userId);
+
+        const note = notes.find(
+            note =>
+                note.id === id &&
+                note.userId === userId
+        );
+
+        if (!note) {
+            return res.status(404).json({
+                success: false,
+                message: "Note not found"
+            });
+        }
+
+        if (!note.attachment) {
+            return res.status(404).json({
+                success: false,
+                message: "Attachment not found"
+            });
+        }
+
+        if (!fs.existsSync(note.attachment.path)) {
+            return res.status(404).json({
+                success: false,
+                message: "Attachment file not found"
+            });
+        }
+
+        res.setHeader(
+            "Content-Type",
+            note.attachment.mimetype
+        );
+
+        const stream = fs.createReadStream(
+            note.attachment.path
+        );
+
+        stream.pipe(res);
+    }
+);
 module.exports = router;
