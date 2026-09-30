@@ -1,37 +1,51 @@
 const express = require("express");
-const router =express.Router();
 const { z } = require("zod");
 
+const requireAuth = require("../middleware/requireAuth");
 const notes = require("../data/notes");
+
+const router = express.Router();
 
 const noteSchema = z.object({
     title: z.string().min(3, "Title must be at least 3 characters"),
     content: z.string().min(5, "Content must be at least 5 characters")
 });
+
 const updateNoteSchema = noteSchema.partial();
 
-router.get("/", (req, res) => {
+
+// GET /notes
+router.get("/", requireAuth, (req, res) => {
     const limit = Number(req.query.limit) || 10;
     const offset = Number(req.query.offset) || 0;
 
-    const paginatedNotes = notes.slice(
+    const userNotes = notes.filter(
+        note => note.userId === req.user.userId
+    );
+
+    const paginatedNotes = userNotes.slice(
         offset,
         offset + limit
     );
 
-    res.json({
+    res.status(200).json({
         success: true,
-        limit: limit,
-        offset: offset,
-        total: notes.length,
+        limit,
+        offset,
+        total: userNotes.length,
         data: paginatedNotes
     });
 });
 
-router.get("/:id", (req, res) => {
+
+// GET /notes/:id
+router.get("/:id", requireAuth, (req, res) => {
     const id = Number(req.params.id);
 
-    const note = notes.find(note => note.id === id);
+    const note = notes.find(
+        note => note.id === id &&
+               note.userId === req.user.userId
+    );
 
     if (!note) {
         return res.status(404).json({
@@ -47,7 +61,8 @@ router.get("/:id", (req, res) => {
 });
 
 
-router.post("/", (req, res) => {
+// POST /notes
+router.post("/", requireAuth, (req, res) => {
     const result = noteSchema.safeParse(req.body);
 
     if (!result.success) {
@@ -60,6 +75,7 @@ router.post("/", (req, res) => {
 
     const newNote = {
         id: notes.length + 1,
+        userId: req.user.userId,
         title: result.data.title,
         content: result.data.content
     };
@@ -72,10 +88,16 @@ router.post("/", (req, res) => {
     });
 });
 
-router.patch("/:id", (req, res) => {
+
+// PATCH /notes/:id
+router.patch("/:id", requireAuth, (req, res) => {
     const id = Number(req.params.id);
 
-    const note = notes.find(note => note.id === id);
+    const note = notes.find(
+        note =>
+            note.id === id &&
+            note.userId === req.user.userId
+    );
 
     if (!note) {
         return res.status(404).json({
@@ -108,10 +130,15 @@ router.patch("/:id", (req, res) => {
     });
 });
 
-router.delete("/:id", (req, res) => {
+// DELETE /notes/:id
+router.delete("/:id", requireAuth, (req, res) => {
     const id = Number(req.params.id);
 
-    const noteIndex = notes.findIndex(note => note.id === id);
+    const noteIndex = notes.findIndex(
+        note =>
+            note.id === id &&
+            note.userId === req.user.userId
+    );
 
     if (noteIndex === -1) {
         return res.status(404).json({
@@ -125,4 +152,5 @@ router.delete("/:id", (req, res) => {
     res.status(204).send();
 });
 
-module.exports=router;
+
+module.exports = router;

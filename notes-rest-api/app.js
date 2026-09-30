@@ -1,17 +1,31 @@
-const express=require("express");
-const app=express();
+const express = require("express");
+const cookieParser = require("cookie-parser");
+require("dotenv").config();
 
-app.use(express.json());  // ALLOWS EXPRESS TO UNDERSTAND THE JSON REQUEST BODIES
+const app = express();
 
-const noteRoutes=require("./routes/noteRoutes");
+app.use(express.json());
+app.use(cookieParser());
 
-app.use("/notes",noteRoutes)  //every route in notedROutes will starts with /notes
+const noteRoutes = require("./routes/noteRoutes");
+const authRoutes = require("./routes/authRoutes");
+const requireAuth = require("./middleware/requireAuth");
 
-app.get("/",(req,res)=>{
+app.use("/notes", noteRoutes);
+app.use("/auth", authRoutes);
+
+app.get("/", (req, res) => {
     res.json({
-        success:true,
-        message: "Notes api is running"
-    })
-})
+        success: true,
+        message: "Notes API is running"
+    });
+});
 
-module.exports=app;
+app.get("/profile", requireAuth, (req, res) => {
+    res.json({
+        success: true,
+        user: req.user
+    });
+});
+
+module.exports = app;
